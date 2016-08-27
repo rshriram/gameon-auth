@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-package net.wasdev.gameon.auth;
+package org.gameontext.auth;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -23,7 +23,9 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
-import java.util.Calendar;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.Map;
 
 import javax.annotation.Resource;
@@ -108,27 +110,20 @@ public abstract class JwtAuth extends HttpServlet {
         // We'll use this claim to know this is a user token
         onwardsClaims.setAudience("client");
 
-        // we set creation time to 24hrs ago, to avoid timezone issues in the
-        // browser
-        // verification of the jwt.
-        Calendar calendar1 = Calendar.getInstance();
-        calendar1.add(Calendar.HOUR, -24);
-        onwardsClaims.setIssuedAt(calendar1.getTime());
-
-        // client JWT has 24 hrs validity from now.
-        Calendar calendar2 = Calendar.getInstance();
-        calendar2.add(Calendar.HOUR, 24);
-        onwardsClaims.setExpiration(calendar2.getTime());
+        // Give a little breathing room for clock skew. We do want the ability
+        // to revoke players, but given long-lived websockets, it ends up being
+        // very inconvenient (in our case) to do this frequently.
+        onwardsClaims.setIssuedAt(Date.from(Instant.now().minus(24, ChronoUnit.HOURS)));
+        onwardsClaims.setExpiration(Date.from(Instant.now().plus(24, ChronoUnit.HOURS)));
 
         // finally build the new jwt, using the claims we just built, signing it
-        // with our
-        // signing key, and adding a key hint as kid to the encryption header,
-        // which is
-        // optional, but can be used by the receivers of the jwt to know which
-        // key
-        // they should verifiy it with.
-        String newJwt = Jwts.builder().setHeaderParam("kid", "playerssl").setClaims(onwardsClaims)
-                .signWith(SignatureAlgorithm.RS256, signingKey).compact();
+        // with our signing key, and adding a key hint as kid to the encryption header,
+        // which is optional, but can be used by the receivers of the jwt to know which
+        // key they should verify it with.
+        String newJwt = Jwts.builder().setHeaderParam("kid", "playerssl")
+                .setClaims(onwardsClaims)
+                .signWith(SignatureAlgorithm.RS256, signingKey)
+                .compact();
 
         return newJwt;
     }

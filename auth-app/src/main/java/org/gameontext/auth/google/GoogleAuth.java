@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-package net.wasdev.gameon.auth.github;
+package org.gameontext.auth.google;
 
 import java.io.IOException;
-import java.util.UUID;
+import java.util.Arrays;
 
 import javax.annotation.Resource;
 import javax.servlet.ServletException;
@@ -25,36 +25,49 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-@WebServlet("/GitHubAuth")
-public class GitHubAuth extends HttpServlet {
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+
+@WebServlet("/GoogleAuth")
+public class GoogleAuth extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
-    @Resource(lookup = "gitHubOAuthKey")
+    @Resource(lookup = "googleOAuthConsumerKey")
     String key;
+    @Resource(lookup = "googleOAuthConsumerSecret")
+    String secret;
 
-    private final static String url = "https://github.com/login/oauth/authorize";
-    
-    public GitHubAuth() {
+    public GoogleAuth() {
     }
 
+    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
+        JsonFactory jsonFactory = new JacksonFactory();
+        HttpTransport httpTransport = new NetHttpTransport();
+
+        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow(
+                httpTransport,
+                jsonFactory,
+                key,
+                secret,
+                Arrays.asList("https://www.googleapis.com/auth/userinfo.profile","https://www.googleapis.com/auth/userinfo.email"));
+
         try {
-            UUID stateUUID = UUID.randomUUID();
-            String state=stateUUID.toString();
-            request.getSession().setAttribute("github", state);
-            
             // google will tell the users browser to go to this address once
             // they are done authing.
             StringBuffer callbackURL = request.getRequestURL();
             int index = callbackURL.lastIndexOf("/");
-            callbackURL.replace(index, callbackURL.length(), "").append("/GitHubCallback");
-            
-            String newUrl = url + "?client_id="+key+"&redirect_url="+callbackURL.toString()+"&state="+state;
-            
+            callbackURL.replace(index, callbackURL.length(), "").append("/GoogleCallback");
+            request.getSession().setAttribute("google", flow);
+
+            String authorizationUrl = flow.newAuthorizationUrl().setRedirectUri(callbackURL.toString()).build();
             // send the user to google to be authenticated.
-            response.sendRedirect(newUrl);
+            response.sendRedirect(authorizationUrl);
 
         } catch (Exception e) {
             throw new ServletException(e);

@@ -16,8 +16,8 @@ task build(dependsOn: ['copyWAR']){
 }
 
 task clean {
-   delete "servers/gameon-auth/apps"
-   delete "servers/gameon-auth/lib"
-   delete "servers/gameon-auth/logs"
-   delete "servers/gameon-auth/workarea"
+    delete "servers/gameon-auth/apps"
+    delete "servers/gameon-auth/lib"
+    delete "servers/gameon-auth/logs"
+    delete "servers/gameon-auth/workarea"
 }

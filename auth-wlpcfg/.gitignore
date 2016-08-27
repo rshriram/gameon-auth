@@ -5,6 +5,7 @@
 /servers/*/lib
 /servers/*/logs
 /servers/*/workarea
+/servers/*/configDropins
 /servers/.pid
 /servers/*/resources
 /build/

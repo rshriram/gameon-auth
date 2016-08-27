@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-package net.wasdev.gameon.auth.google;
+package org.gameontext.auth.twitter;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 import javax.annotation.Resource;
 import javax.servlet.ServletException;
@@ -25,51 +24,52 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.http.HttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.jackson2.JacksonFactory;
+import twitter4j.Twitter;
+import twitter4j.TwitterException;
+import twitter4j.TwitterFactory;
+import twitter4j.auth.RequestToken;
+import twitter4j.conf.ConfigurationBuilder;
 
-@WebServlet("/GoogleAuth")
-public class GoogleAuth extends HttpServlet {
+@WebServlet("/TwitterAuth")
+public class TwitterAuth extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
-    @Resource(lookup = "googleOAuthConsumerKey")
+    @Resource(lookup = "twitterOAuthConsumerKey")
     String key;
-    @Resource(lookup = "googleOAuthConsumerSecret")
+    @Resource(lookup = "twitterOAuthConsumerSecret")
     String secret;
 
-    public GoogleAuth() {
+    public TwitterAuth() {
     }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        JsonFactory jsonFactory = new JacksonFactory();
-        HttpTransport httpTransport = new NetHttpTransport();
+        ConfigurationBuilder c = new ConfigurationBuilder();
+        c.setOAuthConsumerKey(key).setOAuthConsumerSecret(secret);
 
-        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow(
-                httpTransport,
-                jsonFactory,
-                key,
-                secret,
-                Arrays.asList("https://www.googleapis.com/auth/userinfo.profile","https://www.googleapis.com/auth/userinfo.email"));
+        Twitter twitter = new TwitterFactory(c.build()).getInstance();
+        request.getSession().setAttribute("twitter", twitter);
 
         try {
-            // google will tell the users browser to go to this address once
+            // twitter will tell the users browser to go to this address once
             // they are done authing.
             StringBuffer callbackURL = request.getRequestURL();
             int index = callbackURL.lastIndexOf("/");
-            callbackURL.replace(index, callbackURL.length(), "").append("/GoogleCallback");
-            request.getSession().setAttribute("google", flow);
+            callbackURL.replace(index, callbackURL.length(), "").append("/TwitterCallback");
 
-            String authorizationUrl = flow.newAuthorizationUrl().setRedirectUri(callbackURL.toString()).build();
-            // send the user to google to be authenticated.
-            response.sendRedirect(authorizationUrl);
+            // to initiate an auth request, twitter needs us to have a request
+            // token.
+            RequestToken requestToken = twitter.getOAuthRequestToken(callbackURL.toString());
 
-        } catch (Exception e) {
+            // stash the request token in the session.
+            request.getSession().setAttribute("requestToken", requestToken);
+
+            // send the user to twitter to be authenticated.
+            response.sendRedirect(requestToken.getAuthenticationURL());
+
+        } catch (TwitterException e) {
             throw new ServletException(e);
         }
 
